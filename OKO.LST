@@ -1,0 +1,1704 @@
+
+AVRASM ver. 1.30  OKO.asm Fri Jan 26 15:16:07 2018
+
+
+         
+         ; Александру Григорьевичу Столетову (1839) посвящается ...
+         
+         ; Цель разработки:
+         ;    изучить взаимодествие с однокристальными фото-кино-камерами
+         ;    на примере простейшего образца `ov7670`, научиться конвертировать сигналы
+         ;    с камеры в асинхронный последовательный поток данных и обрабатывать эти данные
+         ;    на ЭВМ в реальном времени.
+         
+         ; Высокая цель будущего:
+         ;    если станет известно: как с помощью электрических сигналов
+         ;    передавать визуальную информацию в головной мозг, воздействуя на ионные каналы
+         ;    нервных клеток; то можно будет посредством подобного устройства частично вернуть
+         ;    зрение незрячему человеку или животному.
+         
+         ; Преимущества перед прототипом:
+         ;    габариты контроллера `tiny-2313` до 3 x 3 мм;
+         ;    ПО на ассемблере, что существенно способствует оптимизации кода и бесплатности
+         ;    среды разработки, а также трансляцию можно провести, используя приложение `DOS-box`
+         
+         ; `ov76_m8.asm` : `ov7670` connection first step, NDV
+         ; Прототип:
+         ;    Source code for application to transmit image from ov7670 to PC via USB
+         ;    Example for Arduino Uno/Nano
+         ;    By Siarhei Charkes in 2015
+         ;    http://privateblog.info
+         
+          .include "include/tn2313.asm"
+         ; Number            : AVR000
+         ; File Name         : "tn2313def.inc"
+         ; Title             : Register/Bit Definitions for the ATtiny2313
+         ; Date              : 2005-01-11
+         ; Version           : 2.14
+         ; Support E-mail    : avr@atmel.com
+         ; Target MCU        : ATtiny2313
+         
+         ; SPECIFY DEVICE
+          .equ	SIGNATURE_000	= 0x1e
+          .equ	SIGNATURE_001	= 0x91
+          .equ	SIGNATURE_002	= 0x0a
+         
+         ; I/O REGISTER DEFINITIONS
+         ; NOTE:
+         ; Definitions marked "MEMORY MAPPED"are extended I/O ports
+         ; and cannot be used with IN/OUT instructions
+          .equ	SREG	= 0x3f
+          .equ	SPL	= 0x3d
+          .equ	OCR0B	= 0x3c
+          .equ	GIMSK	= 0x3b
+          .equ	EIFR	= 0x3a
+          .equ	TIMSK	= 0x39
+          .equ	TIFR	= 0x38
+          .equ	SPMCSR	= 0x37
+          .equ	OCR0A	= 0x36
+          .equ	MCUCR	= 0x35
+          .equ	MCUSR	= 0x34
+          .equ	TCCR0B	= 0x33
+          .equ	TCNT0	= 0x32
+          .equ	OSCCAL	= 0x31
+          .equ	TCCR0A	= 0x30
+          .equ	TCCR1A	= 0x2f
+          .equ	TCCR1B	= 0x2e
+          .equ	TCNT1H	= 0x2d
+          .equ	TCNT1L	= 0x2c
+          .equ	OCR1AH	= 0x2b
+          .equ	OCR1AL	= 0x2a
+          .equ	OCR1BH	= 0x29
+          .equ	OCR1BL	= 0x28
+          .equ	CLKPR	= 0x26
+          .equ	ICR1H	= 0x25
+          .equ	ICR1L	= 0x24
+          .equ	GTCCR	= 0x23
+          .equ	TCCR1C	= 0x22
+          .equ	WDTCR	= 0x21
+          .equ	PCMSK	= 0x20
+          .equ	EEAR	= 0x1e
+          .equ	EEDR	= 0x1d
+          .equ	EECR	= 0x1c
+          .equ	PORTA	= 0x1b
+          .equ	DDRA	= 0x1a
+          .equ	PINA	= 0x19
+          .equ	PORTB	= 0x18
+          .equ	DDRB	= 0x17
+          .equ	PINB	= 0x16
+          .equ	GPIOR2	= 0x15
+          .equ	GPIOR1	= 0x14
+          .equ	GPIOR0	= 0x13
+          .equ	PORTD	= 0x12
+          .equ	DDRD	= 0x11
+          .equ	PIND	= 0x10
+          .equ	USIDR	= 0x0f
+          .equ	USISR	= 0x0e
+          .equ	USICR	= 0x0d
+          .equ	UDR	= 0x0c
+          .equ	UCSRA	= 0x0b
+          .equ	UCSRB	= 0x0a
+          .equ	UBRRL	= 0x09
+          .equ	ACSR	= 0x08
+          .equ	UCSRC	= 0x03
+          .equ	UBRRH	= 0x02
+          .equ	DIDR	= 0x01
+         
+         
+         ; BIT DEFINITIONS
+         
+         ; PORTB
+         ; PORTB - Port B Data Register
+          .equ	PORTB0	= 0	; Port B Data Register bit 0
+          .equ	PB0	= 0	; For compatibility
+          .equ	PORTB1	= 1	; Port B Data Register bit 1
+          .equ	PB1	= 1	; For compatibility
+          .equ	PORTB2	= 2	; Port B Data Register bit 2
+          .equ	PB2	= 2	; For compatibility
+          .equ	PORTB3	= 3	; Port B Data Register bit 3
+          .equ	PB3	= 3	; For compatibility
+          .equ	PORTB4	= 4	; Port B Data Register bit 4
+          .equ	PB4	= 4	; For compatibility
+          .equ	PORTB5	= 5	; Port B Data Register bit 5
+          .equ	PB5	= 5	; For compatibility
+          .equ	PORTB6	= 6	; Port B Data Register bit 6
+          .equ	PB6	= 6	; For compatibility
+          .equ	PORTB7	= 7	; Port B Data Register bit 7
+          .equ	PB7	= 7	; For compatibility
+         
+         ; DDRB - Port B Data Direction Register
+          .equ	DDB0	= 0	; Port B Data Direction Register bit 0
+          .equ	DDB1	= 1	; Port B Data Direction Register bit 1
+          .equ	DDB2	= 2	; Port B Data Direction Register bit 2
+          .equ	DDB3	= 3	; Port B Data Direction Register bit 3
+          .equ	DDB4	= 4	; Port B Data Direction Register bit 4
+          .equ	DDB5	= 5	; Port B Data Direction Register bit 5
+          .equ	DDB6	= 6	; Port B Data Direction Register bit 6
+          .equ	DDB7	= 7	; Port B Data Direction Register bit 7
+         
+         ; PINB - Port B Input Pins
+          .equ	PINB0	= 0	; Port B Input Pins bit 0
+          .equ	PINB1	= 1	; Port B Input Pins bit 1
+          .equ	PINB2	= 2	; Port B Input Pins bit 2
+          .equ	PINB3	= 3	; Port B Input Pins bit 3
+          .equ	PINB4	= 4	; Port B Input Pins bit 4
+          .equ	PINB5	= 5	; Port B Input Pins bit 5
+          .equ	PINB6	= 6	; Port B Input Pins bit 6
+          .equ	PINB7	= 7	; Port B Input Pins bit 7
+         
+         
+         ; TIMER_COUNTER_0
+         ; TIMSK - Timer/Counter Interrupt Mask Register
+          .equ	OCIE0A	= 0	; Timer/Counter0 Output Compare Match A Interrupt Enable
+          .equ	TOIE0	= 1	; Timer/Counter0 Overflow Interrupt Enable
+          .equ	OCIE0B	= 2	; Timer/Counter0 Output Compare Match B Interrupt Enable
+         
+         ; TIFR - Timer/Counter Interrupt Flag register
+          .equ	OCF0A	= 0	; Timer/Counter0 Output Compare Flag 0A
+          .equ	TOV0	= 1	; Timer/Counter0 Overflow Flag
+          .equ	OCF0B	= 2	; Timer/Counter0 Output Compare Flag 0B
+         
+         ; OCR0B - Timer/Counter0 Output Compare Register
+          .equ	OCR0_0	= 0	;
+          .equ	OCR0_1	= 1	;
+          .equ	OCR0_2	= 2	;
+          .equ	OCR0_3	= 3	;
+          .equ	OCR0_4	= 4	;
+          .equ	OCR0_5	= 5	;
+          .equ	OCR0_6	= 6	;
+          .equ	OCR0_7	= 7	;
+         
+         ; OCR0A - Timer/Counter0 Output Compare Register
+         ;.equ	OCR0_0	= 0	;
+         ;.equ	OCR0_1	= 1	;
+         ;.equ	OCR0_2	= 2	;
+         ;.equ	OCR0_3	= 3	;
+         ;.equ	OCR0_4	= 4	;
+         ;.equ	OCR0_5	= 5	;
+         ;.equ	OCR0_6	= 6	;
+         ;.equ	OCR0_7	= 7	;
+         
+         ; TCCR0A - Timer/Counter  Control Register A
+          .equ	WGM00	= 0	; Waveform Generation Mode
+          .equ	WGM01	= 1	; Waveform Generation Mode
+          .equ	COM0B0	= 4	; Compare Match Output B Mode
+          .equ	COM0B1	= 5	; Compare Match Output B Mode
+          .equ	COM0A0	= 6	; Compare Match Output A Mode
+          .equ	COM0A1	= 7	; Compare Match Output A Mode
+         
+         ; TCNT0 - Timer/Counter0
+          .equ	TCNT0_0	= 0	;
+          .equ	TCNT0_1	= 1	;
+          .equ	TCNT0_2	= 2	;
+          .equ	TCNT0_3	= 3	;
+          .equ	TCNT0_4	= 4	;
+          .equ	TCNT0_5	= 5	;
+          .equ	TCNT0_6	= 6	;
+          .equ	TCNT0_7	= 7	;
+         
+         ; TCCR0B - Timer/Counter Control Register B
+          .equ	TCCR0	= TCCR0B	; For compatibility
+          .equ	CS00	= 0	; Clock Select
+          .equ	CS01	= 1	; Clock Select
+          .equ	CS02	= 2	; Clock Select
+          .equ	WGM02	= 3	;
+          .equ	FOC0B	= 6	; Force Output Compare B
+          .equ	FOC0A	= 7	; Force Output Compare B
+         
+         
+         ; TIMER_COUNTER_1
+         ; TIMSK - Timer/Counter Interrupt Mask Register
+          .equ	ICIE1	= 3	; Timer/Counter1 Input Capture Interrupt Enable
+          .equ	TICIE	= ICIE1	; For compatibility
+          .equ	OCIE1B	= 5	; Timer/Counter1 Output CompareB Match Interrupt Enable
+          .equ	OCIE1A	= 6	; Timer/Counter1 Output CompareA Match Interrupt Enable
+          .equ	TOIE1	= 7	; Timer/Counter1 Overflow Interrupt Enable
+         
+         ; TIFR - Timer/Counter Interrupt Flag register
+          .equ	ICF1	= 3	; Input Capture Flag 1
+          .equ	OCF1B	= 5	; Output Compare Flag 1B
+          .equ	OCF1A	= 6	; Output Compare Flag 1A
+          .equ	TOV1	= 7	; Timer/Counter1 Overflow Flag
+         
+         ; TCCR1A - Timer/Counter1 Control Register A
+          .equ	WGM10	= 0	; Pulse Width Modulator Select Bit 0
+          .equ	PWM10	= WGM10	; For compatibility
+          .equ	WGM11	= 1	; Pulse Width Modulator Select Bit 1
+          .equ	PWM11	= WGM11	; For compatibility
+          .equ	COM1B0	= 4	; Comparet Ouput Mode 1B, bit 0
+          .equ	COM1B1	= 5	; Compare Output Mode 1B, bit 1
+          .equ	COM1A0	= 6	; Comparet Ouput Mode 1A, bit 0
+          .equ	COM1A1	= 7	; Compare Output Mode 1A, bit 1
+         
+         ; TCCR1B - Timer/Counter1 Control Register B
+          .equ	CS10	= 0	; Clock Select bit 0
+          .equ	CS11	= 1	; Clock Select 1 bit 1
+          .equ	CS12	= 2	; Clock Select1 bit 2
+          .equ	WGM12	= 3	; Waveform Generation Mode Bit 2
+          .equ	CTC1	= WGM12	; For compatibility
+          .equ	WGM13	= 4	; Waveform Generation Mode Bit 3
+          .equ	ICES1	= 6	; Input Capture 1 Edge Select
+          .equ	ICNC1	= 7	; Input Capture 1 Noise Canceler
+         
+         ; TCCR1C - Timer/Counter1 Control Register C
+          .equ	FOC1B	= 6	; Force Output Compare for Channel B
+          .equ	FOC1A	= 7	; Force Output Compare for Channel A
+         
+         
+         ; WATCHDOG
+         ; WDTCR - Watchdog Timer Control Register
+          .equ	WDTCSR	= WDTCR	; For compatibility
+          .equ	WDP0	= 0	; Watch Dog Timer Prescaler bit 0
+          .equ	WDP1	= 1	; Watch Dog Timer Prescaler bit 1
+          .equ	WDP2	= 2	; Watch Dog Timer Prescaler bit 2
+          .equ	WDE	= 3	; Watch Dog Enable
+          .equ	WDCE	= 4	; Watchdog Change Enable
+          .equ	WDTOE	= WDCE	; For compatibility
+          .equ	WDP3	= 5	; Watchdog Timer Prescaler Bit 3
+          .equ	WDIE	= 6	; Watchdog Timeout Interrupt Enable
+          .equ	WDIF	= 7	; Watchdog Timeout Interrupt Flag
+         
+         
+         ; EXTERNAL_INTERRUPT
+         ; GIMSK - General Interrupt Mask Register
+          .equ	PCIE	= 5	;
+          .equ	INT0	= 6	; External Interrupt Request 0 Enable
+          .equ	INT1	= 7	; External Interrupt Request 1 Enable
+         
+         ; EIFR - Extended Interrupt Flag Register
+          .equ	GIFR	= EIFR	; For compatibility
+          .equ	PCIF	= 5	;
+          .equ	INTF0	= 6	; External Interrupt Flag 0
+          .equ	INTF1	= 7	; External Interrupt Flag 1
+         
+         
+         ; USART
+         ; UDR - USART I/O Data Register
+          .equ	UDR0	= 0	; USART I/O Data Register bit 0
+          .equ	UDR1	= 1	; USART I/O Data Register bit 1
+          .equ	UDR2	= 2	; USART I/O Data Register bit 2
+          .equ	UDR3	= 3	; USART I/O Data Register bit 3
+          .equ	UDR4	= 4	; USART I/O Data Register bit 4
+          .equ	UDR5	= 5	; USART I/O Data Register bit 5
+          .equ	UDR6	= 6	; USART I/O Data Register bit 6
+          .equ	UDR7	= 7	; USART I/O Data Register bit 7
+         
+         ; UCSRA - USART Control and Status Register A
+          .equ	USR	= UCSRA	; For compatibility
+          .equ	MPCM	= 0	; Multi-processor Communication Mode
+          .equ	U2X	= 1	; Double the USART Transmission Speed
+          .equ	UPE	= 2	; USART Parity Error
+          .equ	PE	= UPE	; For compatibility
+          .equ	DOR	= 3	; Data overRun
+          .equ	FE	= 4	; Framing Error
+          .equ	UDRE	= 5	; USART Data Register Empty
+          .equ	TXC	= 6	; USART Transmitt Complete
+          .equ	RXC	= 7	; USART Receive Complete
+         
+         ; UCSRB - USART Control and Status Register B
+          .equ	UCR	= UCSRB	; For compatibility
+          .equ	TXB8	= 0	; Transmit Data Bit 8
+          .equ	RXB8	= 1	; Receive Data Bit 8
+          .equ	UCSZ2	= 2	; Character Size
+          .equ	CHR9	= UCSZ2	; For compatibility
+          .equ	TXEN	= 3	; Transmitter Enable
+          .equ	RXEN	= 4	; Receiver Enable
+          .equ	UDRIE	= 5	; USART Data register Empty Interrupt Enable
+          .equ	TXCIE	= 6	; TX Complete Interrupt Enable
+          .equ	RXCIE	= 7	; RX Complete Interrupt Enable
+         
+         ; UCSRC - USART Control and Status Register C
+          .equ	UCPOL	= 0	; Clock Polarity
+          .equ	UCSZ0	= 1	; Character Size Bit 0
+          .equ	UCSZ1	= 2	; Character Size Bit 1
+          .equ	USBS	= 3	; Stop Bit Select
+          .equ	UPM0	= 4	; Parity Mode Bit 0
+          .equ	UPM1	= 5	; Parity Mode Bit 1
+          .equ	UMSEL	= 6	; USART Mode Select
+         
+          .equ	UBRR	= UBRRL	; For compatibility
+         
+         ; ANALOG_COMPARATOR
+         ; ACSR - Analog Comparator Control And Status Register
+          .equ	ACIS0	= 0	; Analog Comparator Interrupt Mode Select bit 0
+          .equ	ACIS1	= 1	; Analog Comparator Interrupt Mode Select bit 1
+          .equ	ACIC	= 2	;
+          .equ	ACIE	= 3	; Analog Comparator Interrupt Enable
+          .equ	ACI	= 4	; Analog Comparator Interrupt Flag
+          .equ	ACO	= 5	; Analog Compare Output
+          .equ	ACBG	= 6	; Analog Comparator Bandgap Select
+          .equ	ACD	= 7	; Analog Comparator Disable
+         
+         ; DIDR - Digital Input Disable Register 1
+          .equ	AIN0D	= 0	; AIN0 Digital Input Disable
+          .equ	AIN1D	= 1	; AIN1 Digital Input Disable
+         
+         
+         ; PORTD
+         ; PORTD - Data Register, Port D
+          .equ	PORTD0	= 0	;
+          .equ	PD0	= 0	; For compatibility
+          .equ	PORTD1	= 1	;
+          .equ	PD1	= 1	; For compatibility
+          .equ	PORTD2	= 2	;
+          .equ	PD2	= 2	; For compatibility
+          .equ	PORTD3	= 3	;
+          .equ	PD3	= 3	; For compatibility
+          .equ	PORTD4	= 4	;
+          .equ	PD4	= 4	; For compatibility
+          .equ	PORTD5	= 5	;
+          .equ	PD5	= 5	; For compatibility
+          .equ	PORTD6	= 6	;
+          .equ	PD6	= 6	; For compatibility
+         
+         ; DDRD
+          .equ	DDD0	= 0	;
+          .equ	DDD1	= 1	;
+          .equ	DDD2	= 2	;
+          .equ	DDD3	= 3	;
+          .equ	DDD4	= 4	;
+          .equ	DDD5	= 5	;
+          .equ	DDD6	= 6	;
+         
+         ; PIND - Input Pins, Port D
+          .equ	PIND0	= 0	;
+          .equ	PIND1	= 1	;
+          .equ	PIND2	= 2	;
+          .equ	PIND3	= 3	;
+          .equ	PIND4	= 4	;
+          .equ	PIND5	= 5	;
+          .equ	PIND6	= 6	;
+         
+         
+         ; EEPROM
+         ; EEAR - EEPROM Read/Write Access
+          .equ	EEARL	= EEAR	; For compatibility
+          .equ	EEAR0	= 0	; EEPROM Read/Write Access bit 0
+          .equ	EEAR1	= 1	; EEPROM Read/Write Access bit 1
+          .equ	EEAR2	= 2	; EEPROM Read/Write Access bit 2
+          .equ	EEAR3	= 3	; EEPROM Read/Write Access bit 3
+          .equ	EEAR4	= 4	; EEPROM Read/Write Access bit 4
+          .equ	EEAR5	= 5	; EEPROM Read/Write Access bit 5
+          .equ	EEAR6	= 6	; EEPROM Read/Write Access bit 6
+         
+         ; EEDR - EEPROM Data Register
+          .equ	EEDR0	= 0	; EEPROM Data Register bit 0
+          .equ	EEDR1	= 1	; EEPROM Data Register bit 1
+          .equ	EEDR2	= 2	; EEPROM Data Register bit 2
+          .equ	EEDR3	= 3	; EEPROM Data Register bit 3
+          .equ	EEDR4	= 4	; EEPROM Data Register bit 4
+          .equ	EEDR5	= 5	; EEPROM Data Register bit 5
+          .equ	EEDR6	= 6	; EEPROM Data Register bit 6
+          .equ	EEDR7	= 7	; EEPROM Data Register bit 7
+         
+         ; EECR - EEPROM Control Register
+          .equ	EERE	= 0	; EEPROM Read Enable
+          .equ	EEPE	= 1	; EEPROM Write Enable
+          .equ	EEWE	= EEPE	; For compatibility
+          .equ	EEMPE	= 2	; EEPROM Master Write Enable
+          .equ	EEMWE	= EEMPE	; For compatibility
+          .equ	EERIE	= 3	; EEProm Ready Interrupt Enable
+          .equ	EEPM0	= 4	;
+          .equ	EEPM1	= 5	;
+         
+         
+         ; PORTA
+         ; PORTA - Port A Data Register
+          .equ	PORTA0	= 0	; Port A Data Register bit 0
+          .equ	PA0	= 0	; For compatibility
+          .equ	PORTA1	= 1	; Port A Data Register bit 1
+          .equ	PA1	= 1	; For compatibility
+          .equ	PORTA2	= 2	; Port A Data Register bit 2
+          .equ	PA2	= 2	; For compatibility
+         
+         ; DDRA - Port A Data Direction Register
+          .equ	DDA0	= 0	; Data Direction Register, Port A, bit 0
+          .equ	DDA1	= 1	; Data Direction Register, Port A, bit 1
+          .equ	DDA2	= 2	; Data Direction Register, Port A, bit 2
+         
+         ; PINA - Port A Input Pins
+          .equ	PINA0	= 0	; Input Pins, Port A bit 0
+          .equ	PINA1	= 1	; Input Pins, Port A bit 1
+          .equ	PINA2	= 2	; Input Pins, Port A bit 2
+         
+         
+         ; CPU
+         ; SREG - Status Register
+          .equ	SREG_C	= 0	; Carry Flag
+          .equ	SREG_Z	= 1	; Zero Flag
+          .equ	SREG_N	= 2	; Negative Flag
+          .equ	SREG_V	= 3	; Two's Complement Overflow Flag
+          .equ	SREG_S	= 4	; Sign Bit
+          .equ	SREG_H	= 5	; Half Carry Flag
+          .equ	SREG_T	= 6	; Bit Copy Storage
+          .equ	SREG_I	= 7	; Global Interrupt Enable
+         
+         ; SPMCSR - Store Program Memory Control and Status register
+          .equ	SPMEN	= 0	; Store Program Memory Enable
+          .equ	PGERS	= 1	; Page Erase
+          .equ	PGWRT	= 2	; Page Write
+          .equ	RFLB	= 3	; Read Fuse and Lock Bits
+          .equ	CTPB	= 4
+         
+         ; MCUCR - MCU Control Register
+          .equ	ISC00	= 0	; Interrupt Sense Control 0 bit 0
+          .equ	ISC01	= 1	; Interrupt Sense Control 0 bit 1
+          .equ	ISC10	= 2	; Interrupt Sense Control 1 bit 0
+          .equ	ISC11	= 3	; Interrupt Sense Control 1 bit 1
+          .equ	SM0	= 4	; Sleep Mode Select Bit 0
+          .equ	SM	= SM0	; For compatibility
+          .equ	SE	= 5	; Sleep Enable
+          .equ	SM1	= 6	; Sleep Mode Select Bit 1
+          .equ	PUD	= 7	; Pull-up Disable
+         
+         ; CLKPR - Clock Prescale Register
+          .equ	CLKPS0	= 0	; Clock Prescaler Select Bit 0
+          .equ	CLKPS1	= 1	; Clock Prescaler Select Bit 1
+          .equ	CLKPS2	= 2	; Clock Prescaler Select Bit 2
+          .equ	CLKPS3	= 3	; Clock Prescaler Select Bit 3
+          .equ	CLKPCE	= 7	; Clock Prescaler Change Enable
+         
+         ; MCUSR - MCU Status register
+          .equ	PORF	= 0	; Power-On Reset Flag
+          .equ	EXTRF	= 1	; External Reset Flag
+          .equ	BORF	= 2	; Brown-out Reset Flag
+          .equ	WDRF	= 3	; Watchdog Reset Flag
+         
+         ; OSCCAL - Oscillator Calibration Register
+          .equ	CAL0	= 0	; Oscillatro Calibration Value Bit 0
+          .equ	CAL1	= 1	; Oscillatro Calibration Value Bit 1
+          .equ	CAL2	= 2	; Oscillatro Calibration Value Bit 2
+          .equ	CAL3	= 3	; Oscillatro Calibration Value Bit 3
+          .equ	CAL4	= 4	; Oscillatro Calibration Value Bit 4
+          .equ	CAL5	= 5	; Oscillatro Calibration Value Bit 5
+          .equ	CAL6	= 6	; Oscillatro Calibration Value Bit 6
+         
+         ; GTCCR - General Timer Counter Control Register
+          .equ	SFIOR	= GTCCR	; For compatibility
+          .equ	PSR10	= 0	;
+         
+         ; PCMSK - Pin-Change Mask register
+          .equ	PCINT0	= 0	; Pin-Change Interrupt 0
+          .equ	PCINT1	= 1	; Pin-Change Interrupt 1
+          .equ	PCINT2	= 2	; Pin-Change Interrupt 2
+          .equ	PCINT3	= 3	; Pin-Change Interrupt 3
+          .equ	PCINT4	= 4	; Pin-Change Interrupt 4
+          .equ	PCINT5	= 5	; Pin-Change Interrupt 5
+          .equ	PCINT6	= 6	; Pin-Change Interrupt 6
+          .equ	PCINT7	= 7	; Pin-Change Interrupt 7
+         
+         ; GPIOR2 - General Purpose I/O Register 2
+          .equ	GPIOR20	= 0	; General Purpose I/O Register 2 bit 0
+          .equ	GPIOR21	= 1	; General Purpose I/O Register 2 bit 1
+          .equ	GPIOR22	= 2	; General Purpose I/O Register 2 bit 2
+          .equ	GPIOR23	= 3	; General Purpose I/O Register 2 bit 3
+          .equ	GPIOR24	= 4	; General Purpose I/O Register 2 bit 4
+          .equ	GPIOR25	= 5	; General Purpose I/O Register 2 bit 5
+          .equ	GPIOR26	= 6	; General Purpose I/O Register 2 bit 6
+          .equ	GPIOR27	= 7	; General Purpose I/O Register 2 bit 7
+         
+         ; GPIOR1 - General Purpose I/O Register 1
+          .equ	GPIOR10	= 0	; General Purpose I/O Register 1 bit 0
+          .equ	GPIOR11	= 1	; General Purpose I/O Register 1 bit 1
+          .equ	GPIOR12	= 2	; General Purpose I/O Register 1 bit 2
+          .equ	GPIOR13	= 3	; General Purpose I/O Register 1 bit 3
+          .equ	GPIOR14	= 4	; General Purpose I/O Register 1 bit 4
+          .equ	GPIOR15	= 5	; General Purpose I/O Register 1 bit 5
+          .equ	GPIOR16	= 6	; General Purpose I/O Register 1 bit 6
+          .equ	GPIOR17	= 7	; General Purpose I/O Register 1 bit 7
+         
+         ; GPIOR0 - General Purpose I/O Register 0
+          .equ	GPIOR00	= 0	; General Purpose I/O Register 0 bit 0
+          .equ	GPIOR01	= 1	; General Purpose I/O Register 0 bit 1
+          .equ	GPIOR02	= 2	; General Purpose I/O Register 0 bit 2
+          .equ	GPIOR03	= 3	; General Purpose I/O Register 0 bit 3
+          .equ	GPIOR04	= 4	; General Purpose I/O Register 0 bit 4
+          .equ	GPIOR05	= 5	; General Purpose I/O Register 0 bit 5
+          .equ	GPIOR06	= 6	; General Purpose I/O Register 0 bit 6
+          .equ	GPIOR07	= 7	; General Purpose I/O Register 0 bit 7
+         
+         
+         ; USI
+         ; USIDR - USI Data Register
+          .equ	USIDR0	= 0	; USI Data Register bit 0
+          .equ	USIDR1	= 1	; USI Data Register bit 1
+          .equ	USIDR2	= 2	; USI Data Register bit 2
+          .equ	USIDR3	= 3	; USI Data Register bit 3
+          .equ	USIDR4	= 4	; USI Data Register bit 4
+          .equ	USIDR5	= 5	; USI Data Register bit 5
+          .equ	USIDR6	= 6	; USI Data Register bit 6
+          .equ	USIDR7	= 7	; USI Data Register bit 7
+         
+         ; USISR - USI Status Register
+          .equ	USICNT0	= 0	; USI Counter Value Bit 0
+          .equ	USICNT1	= 1	; USI Counter Value Bit 1
+          .equ	USICNT2	= 2	; USI Counter Value Bit 2
+          .equ	USICNT3	= 3	; USI Counter Value Bit 3
+          .equ	USIDC	= 4	; Data Output Collision
+          .equ	USIPF	= 5	; Stop Condition Flag
+          .equ	USIOIF	= 6	; Counter Overflow Interrupt Flag
+          .equ	USISIF	= 7	; Start Condition Interrupt Flag
+         
+         ; USICR - USI Control Register
+          .equ	USITC	= 0	; Toggle Clock Port Pin
+          .equ	USICLK	= 1	; Clock Strobe
+          .equ	USICS0	= 2	; USI Clock Source Select Bit 0
+          .equ	USICS1	= 3	; USI Clock Source Select Bit 1
+          .equ	USIWM0	= 4	; USI Wire Mode Bit 0
+          .equ	USIWM1	= 5	; USI Wire Mode Bit 1
+          .equ	USIOIE	= 6	; Counter Overflow Interrupt Enable
+          .equ	USISIE	= 7	; Start Condition Interrupt Enable
+         
+         
+         
+         ; LOCKSBITS
+          .equ	LB1	= 0	; Lockbit
+          .equ	LB2	= 1	; Lockbit
+         
+         
+         ; FUSES
+         ; LOW fuse bits
+          .equ	CKSEL0	= 0	; Select Clock Source
+          .equ	CKSEL1	= 1	; Select Clock Source
+          .equ	CKSEL2	= 2	; Select Clock Source
+          .equ	CKSEL3	= 3	; Select Clock Source
+          .equ	SUT0	= 4	; Select start-up time
+          .equ	SUT1	= 5	; Select start-up time
+          .equ	CKOUT	= 6	; Clock output
+          .equ	CKDIV8	= 7	; Divide clock by 8
+         
+         ; HIGH fuse bits
+          .equ	BODLEVEL0	= 0	; Brown-out Detector trigger level
+          .equ	BODLEVEL1	= 1	; Brown-out Detector trigger level
+          .equ	BODLEVEL2	= 2	; Brown-out Detector trigger level
+          .equ	EESAVE	= 3	; EEPROM memory is preserved through chip erase
+          .equ	WDTON	= 4	; Watchdog Timer Always On
+          .equ	SPIEN	= 5	; Enable Serial programming and Data Downloading
+          .equ	DWEN	= 6	; debugWIRE Enable
+          .equ	RSTDISBL	= 7	; External reset disable
+         
+         ; EXTENDED fuse bits
+          .equ	SELFPRGEN	= 0	; Self Programming Enable
+         
+         
+         
+         ; CPU REGISTER DEFINITIONS
+          .def	XH	= r27
+          .def	XL	= r26
+          .def	YH	= r29
+          .def	YL	= r28
+          .def	ZH	= r31
+          .def	ZL	= r30
+         
+         
+         
+         ; DATA MEMORY DECLARATIONS
+          .equ  FLASHEND  = 0x03ff  ; Note: bytes-couple address
+          .equ	IOEND	= 0x003f
+          .equ	SRAM_START	= 0x0060
+          .equ	SRAM_SIZE	= 128
+          .equ	RAMEND	= 0x00df
+          .equ	XRAMEND	= 0x0000
+          .equ	E2END	= 0x007f
+          .equ	EEPROMEND	= 0x007f
+          .equ	EEADRBITS	= 7
+         
+         
+         
+         ; BOOTLOADER DECLARATIONS
+          .equ	NRWW_START_ADDR	= 0x0
+          .equ	NRWW_STOP_ADDR	= 0x3ff
+          .equ	RWW_START_ADDR	= 0x0
+          .equ	RWW_STOP_ADDR	= 0x0
+          .equ	PAGESIZE	= 16
+         
+         
+         
+         ; INTERRUPT VECTORS
+          .equ	INT0addr	= 0x0001	; External Interrupt Request 0
+          .equ	INT1addr	= 0x0002	; External Interrupt Request 1
+          .equ	ICP1addr	= 0x0003	; Timer/Counter1 Capture Event
+          .equ	OC1Aaddr	= 0x0004	; Timer/Counter1 Compare Match A
+          .equ    OC1addr         = 0x0004        ; For compatibility
+          .equ	OVF1addr	= 0x0005	; Timer/Counter1 Overflow
+          .equ	OVF0addr	= 0x0006	; Timer/Counter0 Overflow
+          .equ	URXCaddr	= 0x0007	; USART, Rx Complete
+          .equ	URXC0addr	= 0x0007	; For compatibility
+          .equ	UDREaddr	= 0x0008	; USART Data Register Empty
+          .equ	UDRE0addr	= 0x0008	; For compatibility
+          .equ	UTXCaddr	= 0x0009	; USART, Tx Complete
+          .equ	UTXC0addr	= 0x0009	; For compatibility
+          .equ    ACIaddr         = 0x000a        ; Analog Comparator
+          .equ    PCIaddr         = 0x000b        ;
+          .equ	OC1Baddr	= 0x000c	;
+          .equ	OC0Aaddr	= 0x000d	;
+          .equ	OC0Baddr	= 0x000e	;
+          .equ	USI_STARTaddr	= 0x000f	; USI Start Condition
+          .equ	USI_OVFaddr	= 0x0010	; USI Overflow
+          .equ	ERDYaddr	= 0x0011	;
+          .equ    WDTaddr         = 0x0012        ; Watchdog Timer Overflow
+         
+          .equ  INT_VECTORS_SIZE  = 19  ; size in bytes-couple
+         
+         ; END OF FILE
+         
+          .include "include/macro.asm"
+         
+           ; `macro.asm`
+         
+           ; --------------------------------------------------------------------------------------------------------------------------------
+         
+            .MACRO out_i
+                      ldi  t_0, @1
+                      out  @0, t_0
+            .ENDMACRO
+         
+            .MACRO ldi_Z
+                      ldi  ZH, high(@0<<1)
+                      ldi  ZL, low (@0<<1)
+            .ENDMACRO
+         
+            .MACRO ldi_Y
+                      ldi  YH, high(@0)
+                      ldi  YL, low (@0)
+            .ENDMACRO
+         
+            .MACRO ldi_X
+                      ldi  XH, high(@0)
+                      ldi  XL, low (@0)
+            .ENDMACRO
+         
+            .MACRO ldi_W
+                      ldi  W_hi, high(@0)
+                      ldi  W_lo, low (@0)
+            .ENDMACRO
+         
+            .MACRO var_delay_3_clc
+                      ldi   delay_c, @0
+                   var_delay_lbl:
+                      dec   delay_c
+                      brne  var_delay_lbl
+            .ENDMACRO
+         
+           ; --------------------------------------------------------------------------------------------------------------------------------
+         
+         
+          .def  t_0     = r16
+          .def  t_1     = r17
+          .def  t_2     = r18
+          .def  t_3     = r19
+          .def  delay_c = r20
+          .def  cnt_2   = r21
+         
+         ; регистровая пара «W»{NDV} для 16-разрядных операций
+          .def  W_lo    = R24
+          .def  W_hi    = R25
+         
+         ; `OV7670` connection
+          .equ   CAM_DDR       = DDRD
+          .equ   CAM_PORT      = PORTD
+          .equ   CAM_PIN       = PIND
+          .equ   CAM_XCLK      = 2 ; тактовый сигнал 8 МГц (CKOUT необходимо настроить).
+          .equ   CAM_VSYNC     = 3 ; кадровая синхронизация.
+          .equ   CAM_PCLK      = 4 ; пиксельная синхронизация.
+          .equ   CAM_DATA_DDR  = DDRB
+          .equ   CAM_DATA_PORT = PORTB
+          .equ   CAM_DATA_PIN  = PINB
+         
+         ; ВМЕСТО КВАРЦЕВОГО РЕЗОНАТОРА ЗДЕСЬ <<I2C>>
+          .equ   i2c_DDR       = DDRA
+          .equ   i2c_PORT      = PORTA
+          .equ   i2c_PIN       = PINA
+          .equ   i2c_SDA       = 1
+          .equ   i2c_SCL       = 0
+         
+         ; `asynchronous transmitter`
+          .equ   AT_DDR  = DDRD
+          .equ   AT_PORT = PORTD
+          .equ   AT_PIN  = 5
+         
+          .ORG 0x100 ; ЗАПИСЫВАЕМ ПОВЕРХ ЗАГРУЗЧИКА ЕГО СРЕДСТВАМИ
+         
+         ; interrupts links
+000100 c030      RESET:      rjmp    BEGIN          ; 00   reset handler
+000101 9518                  reti                   ; 01   external interrupt0 handler
+000102 9518                  reti                   ; 02   external interrupt1 handler
+000103 9518                  reti                   ; 03   timer1 capture handler
+000104 9518                  reti                   ; 04   timer1 compare a handler
+000105 9518                  reti                   ; 05   timer1 overflow handler
+000106 9518                  reti                   ; 06   timer0 overflow handler
+000107 9518                  reti                   ; 07   usart0 rx complete handler
+000108 9518                  reti                   ; 08   usart0,udr empty handler
+000109 9518                  reti                   ; 09   usart0 tx complete handler
+00010a 9518                  reti                   ; 0a   analog comparator handler
+00010b 9518                  reti                   ; 0b   pin change interrupt
+00010c 9518                  reti                   ; 0c   timer1 compare b handler
+00010d 9518                  reti                   ; 0d   timer0 compare a handler
+00010e 9518                  reti                   ; 0e   timer0 compare b handler
+00010f 9518                  reti                   ; 0f   usi start handler
+000110 9518                  reti                   ; 10   usi overflow handler
+000111 9518                  reti                   ; 11   eeprom ready handler
+000112 cfed                  rjmp    RESET          ; 12   wdt overflow handler
+         
+         ; ЗАДЕРЖКИ СРЕДСТВАМИ ЯДРА ПРИ ТАКТОВОЙ ЧАСТОТЕ 8 МГц
+         
+          delay_1_ms:
+             ; Generated by delay loop calculator
+             ; at http://www.bretmulvey.com/avrdelay.html
+             ;
+             ; Delay 8 000 cycles
+             ; 1ms at 8.0 MHz
+000113 95a8              wdr
+000114 e00b              ldi  t_0, 11
+000115 e613              ldi  t_1, 99
+000116 951a          L1: dec  t_1
+000117 f7f1              brne L1
+000118 950a              dec  t_0
+000119 f7e1              brne L1
+00011a 9508              ret
+         
+          delay_100_ms:
+             ; Generated by delay loop calculator
+             ; at http://www.bretmulvey.com/avrdelay.html
+             ;
+             ; Delay 800 000 cycles
+             ; 100ms at 8.0 MHz
+00011b 95a8              wdr
+00011c e005              ldi  t_0, 5
+00011d e01f              ldi  t_1, 15
+00011e ef22              ldi  t_2, 242
+00011f 952a          L2: dec  t_2
+000120 f7f1              brne L2
+000121 951a              dec  t_1
+000122 f7e1              brne L2
+000123 950a              dec  t_0
+000124 f7d1              brne L2
+000125 9508              ret
+         
+          delay_1_second:
+             ; Generated by delay loop calculator
+             ; at http://www.bretmulvey.com/avrdelay.html
+             ;
+             ; Delay 8 000 000 cycles
+             ; 1s at 8.0 MHz
+000126 95a8              wdr
+000127 e209              ldi  t_0, 41
+000128 e916              ldi  t_1, 150
+000129 e820              ldi  t_2, 128
+00012a 952a          L3: dec  t_2
+00012b f7f1              brne L3
+00012c 951a              dec  t_1
+00012d f7e1              brne L3
+00012e 950a              dec  t_0
+00012f f7d1              brne L3
+000130 9508              ret
+         
+          BEGIN:
+000131 94f8              cli
+000132 95a8              wdr
+000133   +          out_i  SPL, low(RAMEND) ; set stack pointer to top of r.a.m.
+000135   +          out_i  ACSR, 128 ; analog comparator disable
+000137   +          out_i  WDTCR, 24
+000139   +          out_i  WDTCR, 15
+00013b 95a8              wdr
+00013c d02a              rcall  peripheral_init
+00013d dfe8              rcall  delay_1_second
+00013e dfe7              rcall  delay_1_second
+00013f dfe6              rcall  delay_1_second
+000140   +          ldi_Z  welcome_token
+000142 d18e              rcall  AT_send_string
+000143 d0f6              rcall  cam_init
+000144 d104              rcall  cam_set_res
+000145 d0ff              rcall  cam_set_color
+000146 e121              ldi    t_2, 0x11
+000147 e03c              ldi    t_3, 12
+000148 d153              rcall  cam_wr_cell
+000149 95a8              wdr
+00014a   +          ldi_Z  init_token
+00014c d184              rcall  AT_send_string
+               LOOP:
+00014d d193              rcall  capture_img_320x240
+00014e cffe              rjmp   LOOP
+         
+00014f      welcome_token: .db ">>> welcome ",13,10,0,0
+00014f 3e3e
+000150 203e
+000151 6577
+000152 636c
+000153 6d6f
+000154 2065
+000155 0a0d
+000156 0000
+000157      init_token:    .db ">>> initialization complete ",13,10,0,0
+000157 3e3e
+000158 203e
+000159 6e69
+00015a 7469
+00015b 6169
+00015c 696c
+00015d 617a
+00015e 6974
+00015f 6e6f
+000160 6320
+000161 6d6f
+000162 6c70
+000163 7465
+000164 2065
+000165 0a0d
+000166 0000
+         
+          peripheral_init:
+000167   +          out_i  CAM_DATA_DDR,  0b00000000
+000169   +          out_i  CAM_DATA_PORT, 0b11111111 ; ?
+               ; out_i  CAM_DATA_PORT, 0b00000000 ; ?
+00016b 988b              cbi    CAM_DDR,       CAM_VSYNC
+00016c 988c              cbi    CAM_DDR,       CAM_PCLK
+00016d 9a93              sbi    CAM_PORT,      CAM_VSYNC  ; ?
+               ; cbi    CAM_PORT,      CAM_VSYNC  ; ?
+00016e 9a94              sbi    CAM_PORT,      CAM_PCLK   ; ?
+               ; cbi    CAM_PORT,      CAM_PCLK   ; ?
+00016f d0e4              rcall  i2c_init
+000170 9a95              SBI    AT_PORT, AT_PIN
+000171 9a8d              SBI    AT_DDR,  AT_PIN
+000172 9508              ret
+         
+          .include "include/ov7670.asm"
+         
+         ; ov7670.asm
+         ; источник:
+         ; {
+         ;    Source code for application to transmit image from ov7670 to PC via USB
+         ;    Example for Arduino Uno/Nano
+         ;    By Siarhei Charkes in 2015
+         ;    http://privateblog.info
+         ; }
+         
+         ; НЕОБХОДИМО:
+         ;    cam_wr_cell(t_2{cell}, t_3{data})
+         ;    delay_100_ms()
+         ;    CAM_DDR, CAM_PORT, CAM_PIN, CAM_VSYNC {кадровая синхронизация}, CAM_PCLK {пиксельная синхронизация}
+         ;    CAM_DATA_DDR, CAM_DATA_PIN
+         
+          .MACRO wait_for_high
+                    wait_for_high_lbl: sbis CAM_PIN, @0
+                                       rjmp wait_for_high_lbl
+          .ENDMACRO
+         
+          .MACRO wait_for_low
+                    wait_for_low_lbl: sbic CAM_PIN, @0
+                                      rjmp wait_for_low_lbl
+          .ENDMACRO
+         
+          .equ   vga        = 0
+          .equ   qvga       = 1
+          .equ   qqvga      = 2
+          .equ   yuv422     = 0
+          .equ   rgb565     = 1
+          .equ   bayerRGB   = 2
+         
+          .equ   camAddr_WR = 0x42
+          .equ   camAddr_RD = camAddr_WR | 1
+         
+         ; Registers
+          .equ  REG_GAIN               = 0x00    ; Gain lower 8 bits (rest in vref)
+          .equ  REG_BLUE               = 0x01    ; blue gain
+          .equ  REG_RED                = 0x02    ; red gain
+          .equ  REG_VREF               = 0x03    ; Pieces of GAIN, VSTART, VSTOP
+          .equ  REG_COM1               = 0x04    ; Control 1
+          .equ  COM1_CCIR656           = 0x40    ; CCIR656 enable
+         
+          .equ  REG_BAVE               = 0x05    ; U/B Average level
+          .equ  REG_GbAVE              = 0x06    ; Y/Gb Average level
+          .equ  REG_AECHH              = 0x07    ; AEC MS 5 bits
+          .equ  REG_RAVE               = 0x08    ; V/R Average level
+          .equ  REG_COM2               = 0x09    ; Control 2
+          .equ  COM2_SSLEEP            = 0x10    ; Soft sleep mode
+          .equ  REG_PID                = 0x0a    ; Product ID MSB
+          .equ  REG_VER                = 0x0b    ; Product ID LSB
+          .equ  REG_COM3               = 0x0c    ; Control 3
+          .equ  COM3_SWAP              = 0x40    ; Byte swap
+          .equ  COM3_SCALEEN           = 0x08    ; Enable scaling
+          .equ  COM3_DCWEN             = 0x04    ; Enable downsamp/crop/window
+          .equ  REG_COM4               = 0x0d    ; Control 4
+          .equ  REG_COM5               = 0x0e    ; All "reserved"
+          .equ  REG_COM6               = 0x0f    ; Control 6
+          .equ  REG_AECH               = 0x10    ; More bits of AEC value
+          .equ  REG_CLKRC              = 0x11    ; Clock control
+          .equ  CLK_EXT                = 0x40    ; Use external clock directly
+          .equ  CLK_SCALE              = 0x3f    ; Mask for internal clock scale
+          .equ  REG_COM7               = 0x12    ; Control 7  //REG mean address.
+          .equ  COM7_RESET             = 0x80    ; Register reset
+          .equ  COM7_FMT_MASK          = 0x38
+          .equ  COM7_FMT_VGA           = 0x00
+          .equ  COM7_FMT_CIF           = 0x20    ; CIF format
+          .equ  COM7_FMT_QVGA          = 0x10    ; QVGA format
+          .equ  COM7_FMT_QCIF          = 0x08    ; QCIF format
+          .equ  COM7_RGB               = 0x04    ; bits 0 and 2 - RGB format
+          .equ  COM7_YUV               = 0x00    ; YUV
+          .equ  COM7_BAYER             = 0x01    ; Bayer format
+          .equ  COM7_PBAYER            = 0x05    ; "Processed bayer"
+          .equ  REG_COM8               = 0x13    ; Control 8
+          .equ  COM8_FASTAEC           = 0x80    ; Enable fast AGC/AEC
+          .equ  COM8_AECSTEP           = 0x40    ; Unlimited AEC step size
+          .equ  COM8_BFILT             = 0x20    ; Band filter enable
+          .equ  COM8_AGC               = 0x04    ; Auto gain enable
+          .equ  COM8_AWB               = 0x02    ; White balance enable
+          .equ  COM8_AEC               = 0x01    ; Auto exposure enable
+          .equ  REG_COM9               = 0x14    ; Control 9- gain ceiling
+          .equ  REG_COM10              = 0x15    ; Control 10
+          .equ  COM10_HSYNC            = 0x40    ; HSYNC instead of HREF
+          .equ  COM10_PCLK_HB          = 0x20    ; Suppress PCLK on horiz blank
+          .equ  COM10_HREF_REV         = 0x08    ; Reverse HREF
+          .equ  COM10_VS_LEAD          = 0x04    ; VSYNC on clock leading edge
+          .equ  COM10_VS_NEG           = 0x02    ; VSYNC negative
+          .equ  COM10_HS_NEG           = 0x01    ; HSYNC negative
+          .equ  REG_HSTART             = 0x17    ; Horiz start high bits
+          .equ  REG_HSTOP              = 0x18    ; Horiz stop high bits
+          .equ  REG_VSTART             = 0x19    ; Vert start high bits
+          .equ  REG_VSTOP              = 0x1a    ; Vert stop high bits
+          .equ  REG_PSHFT              = 0x1b    ; Pixel delay after HREF
+          .equ  REG_MIDH               = 0x1c    ; Manuf. ID high
+          .equ  REG_MIDL               = 0x1d    ; Manuf. ID low
+          .equ  REG_MVFP               = 0x1e    ; Mirror / vflip
+          .equ  MVFP_MIRROR            = 0x20    ; Mirror image
+          .equ  MVFP_FLIP              = 0x10    ; Vertical flip
+         
+          .equ  REG_AEW                = 0x24    ; AGC upper limit
+          .equ  REG_AEB                = 0x25    ; AGC lower limit
+          .equ  REG_VPT                = 0x26    ; AGC/AEC fast mode op region
+          .equ  REG_HSYST              = 0x30    ; HSYNC rising edge delay
+          .equ  REG_HSYEN              = 0x31    ; HSYNC falling edge delay
+          .equ  REG_HREF               = 0x32    ; HREF pieces
+          .equ  REG_TSLB               = 0x3a    ; lots of stuff
+          .equ  TSLB_YLAST             = 0x04    ; UYVY or VYUY - see com13
+          .equ  REG_COM11              = 0x3b    ; Control 11
+          .equ  COM11_NIGHT            = 0x80    ; NIght mode enable
+          .equ  COM11_NMFR             = 0x60    ; Two bit NM frame rate
+          .equ  COM11_HZAUTO           = 0x10    ; Auto detect 50/60 Hz
+          .equ  COM11_50HZ             = 0x08    ; Manual 50Hz select
+          .equ  COM11_EXP              = 0x02
+          .equ  REG_COM12              = 0x3c    ; Control 12
+          .equ  COM12_HREF             = 0x80    ; HREF always
+          .equ  REG_COM13              = 0x3d    ; Control 13
+          .equ  COM13_GAMMA            = 0x80    ; Gamma enable
+          .equ  COM13_UVSAT            = 0x40    ; UV saturation auto adjustment
+          .equ  COM13_UVSWAP           = 0x01    ; V before U - w/TSLB
+          .equ  REG_COM14              = 0x3e    ; Control 14
+          .equ  COM14_DCWEN            = 0x10    ; DCW/PCLK-scale enable
+          .equ  REG_EDGE               = 0x3f    ; Edge enhancement factor
+          .equ  REG_COM15              = 0x40    ; Control 15
+          .equ  COM15_R10F0            = 0x00    ; Data range 10 to F0
+          .equ  COM15_R01FE            = 0x80    ;            01 to FE
+          .equ  COM15_R00FF            = 0xc0    ;            00 to FF
+          .equ  COM15_RGB565           = 0x10    ; RGB565 output
+          .equ  COM15_RGB555           = 0x30    ; RGB555 output
+          .equ  REG_COM16              = 0x41    ; Control 16
+          .equ  COM16_AWBGAIN          = 0x08    ; AWB gain enable
+          .equ  REG_COM17              = 0x42    ; Control 17
+          .equ  COM17_AECWIN           = 0xc0    ; AEC window - must match COM4
+          .equ  COM17_CBAR             = 0x08    ; DSP Color bar
+         
+         ; This matrix defines how the colors are generated, must be
+         ; tweaked to adjust hue and saturation.
+         
+         ; Order: v-red, v-green, v-blue, u-red, u-green, u-blue
+         ; They are nine-bit signed quantities, with the sign bit
+         ; stored in 0x58. Sign for v-red is bit 0, and up from there.
+         
+          .equ  REG_CMATRIX_BASE       = 0x4f
+          .equ  CMATRIX_LEN            = 6
+          .equ  REG_CMATRIX_SIGN       = 0x58
+          .equ  REG_BRIGHT             = 0x55    ; Brightness
+          .equ  REG_CONTRAS            = 0x56    ; Contrast control
+          .equ  REG_GFIX               = 0x69    ; Fix gain control
+          .equ  REG_REG76              = 0x76    ; OV's name
+          .equ  R76_BLKPCOR            = 0x80    ; Black pixel correction enable
+          .equ  R76_WHTPCOR            = 0x40    ; White pixel correction enable
+          .equ  REG_RGB444             = 0x8c    ; RGB 444 control
+          .equ  R444_ENABLE            = 0x02    ; Turn on RGB444, overrides 5x5
+          .equ  R444_RGBX              = 0x01    ; Empty nibble at end
+          .equ  REG_HAECC1             = 0x9f    ; Hist AEC/AGC control 1
+          .equ  REG_HAECC2             = 0xa0    ; Hist AEC/AGC control 2
+          .equ  REG_HAECC3             = 0xa6    ; Hist AEC/AGC control 3
+          .equ  REG_HAECC4             = 0xa7    ; Hist AEC/AGC control 4
+          .equ  REG_HAECC5             = 0xa8    ; Hist AEC/AGC control 5
+          .equ  REG_HAECC6             = 0xa9    ; Hist AEC/AGC control 6
+          .equ  REG_HAECC7             = 0xaa    ; Hist AEC/AGC control 7
+          .equ  REG_BD50MAX            = 0xa5    ; 50hz banding step limit
+          .equ  REG_BD60MAX            = 0xab    ; 60hz banding step limit
+         
+          .equ  MTX1                   = 0x4f    ; Matrix Coefficient 1
+          .equ  MTX2                   = 0x50    ; Matrix Coefficient 2
+          .equ  MTX3                   = 0x51    ; Matrix Coefficient 3
+          .equ  MTX4                   = 0x52    ; Matrix Coefficient 4
+          .equ  MTX5                   = 0x53    ; Matrix Coefficient 5
+          .equ  MTX6                   = 0x54    ; Matrix Coefficient 6
+          .equ  MTXS                   = 0x58    ; Matrix Coefficient Sign
+          .equ  AWBC7                  = 0x59    ; AWB Control 7
+          .equ  AWBC8                  = 0x5a    ; AWB Control 8
+          .equ  AWBC9                  = 0x5b    ; AWB Control 9
+          .equ  AWBC10                 = 0x5c    ; AWB Control 10
+          .equ  AWBC11                 = 0x5d    ; AWB Control 11
+          .equ  AWBC12                 = 0x5e    ; AWB Control 12
+          .equ  REG_GFI                = 0x69    ; Fix gain control
+          .equ  GGAIN                  = 0x6a    ; G Channel AWB Gain
+          .equ  DBLV                   = 0x6b
+          .equ  AWBCTR3                = 0x6c    ; AWB Control 3
+          .equ  AWBCTR2                = 0x6d    ; AWB Control 2
+          .equ  AWBCTR1                = 0x6e    ; AWB Control 1
+          .equ  AWBCTR0                = 0x6f    ; AWB Control 0
+         
+          qvga_ov7670:
+                  .db  REG_COM14,  0x19
+000173 193e
+                  .db  0x72,       0x11
+000174 1172
+                  .db  0x73,       0xf1
+000175 f173
+         
+                  .db  REG_HSTART, 0x16
+000176 1617
+                  .db  REG_HSTOP,  0x04
+000177 0418
+                  .db  REG_HREF,   0xa4
+000178 a432
+                  .db  REG_VSTART, 0x02
+000179 0219
+                  .db  REG_VSTOP,  0x7a
+00017a 7a1a
+                  .db  REG_VREF,   0x0a
+00017b 0a03
+         
+               ; .db  REG_HSTART, 0x16
+               ; .db  REG_HSTOP,  0x04
+               ; .db  REG_HREF,   0x24
+               ; .db  REG_VSTART, 0x02
+               ; .db  REG_VSTOP,  0x7a
+               ; .db  REG_VREF,   0x0a
+         
+                  .db  0xff, 0xff ; END MARKER
+00017c ffff
+         
+          yuv422_ov7670:
+                  .db  REG_COM7,   0x0 ; Selects YUV mode
+00017d 0012
+                  .db  REG_RGB444, 0   ; No RGB444 please
+00017e 008c
+                  .db  REG_COM1,   0
+00017f 0004
+                  .db  REG_COM15,  COM15_R00FF
+000180 c040
+                  .db  REG_COM9,   0x6A ; 128x gain ceiling; 0x8 is reserved bit
+000181 6a14
+                  .db  0x4f,       0x80 ; "matrix coefficient 1"
+000182 804f
+                  .db  0x50,       0x80 ; "matrix coefficient 2"
+000183 8050
+                  .db  0x51,       0    ; vb
+000184 0051
+                  .db  0x52,       0x22 ; "matrix coefficient 4"
+000185 2252
+                  .db  0x53,       0x5e ; "matrix coefficient 5"
+000186 5e53
+                  .db  0x54,       0x80 ; "matrix coefficient 6"
+000187 8054
+                  .db  REG_COM13,  COM13_UVSAT
+000188 403d
+                  .db  0xff, 0xff ; END MARKER
+000189 ffff
+         
+          ov7670_default_regs:
+                 ; from the linux driver
+                  .db  REG_COM7, COM7_RESET
+00018a 8012
+                  .db  REG_TSLB, 0x04 ; OV
+00018b 043a
+                  .db  REG_COM7, 0    ; VGA
+00018c 0012
+         
+                 ; Set the hardware window. These values from OV don't entirely
+                 ; make sense - hstop is less than hstart. But they work...
+         
+                  .db  REG_HSTART, 0x13
+00018d 1317
+                  .db  REG_HSTOP,  0x01
+00018e 0118
+                  .db  REG_HREF,   0xb6
+00018f b632
+                  .db  REG_VSTART, 0x02
+000190 0219
+                  .db  REG_VSTOP,  0x7a
+000191 7a1a
+                  .db  REG_VREF,   0x0a
+000192 0a03
+         
+                  .db  REG_COM3,  0
+000193 000c
+                  .db  REG_COM14, 0
+000194 003e
+                 ; Mystery scaling numbers
+                  .db  0x70, 0x3a
+000195 3a70
+                  .db  0x71, 0x35
+000196 3571
+                  .db  0x72, 0x11
+000197 1172
+                  .db  0x73, 0xf0
+000198 f073
+                  .db  0xa2, 1 ; 0x02 changed to 1
+000199 01a2
+                  .db  REG_COM10, 0x0
+00019a 0015
+                 ; Gamma curve values
+                  .db  0x7a, 0x20
+00019b 207a
+                  .db  0x7b, 0x10
+00019c 107b
+                  .db  0x7c, 0x1e
+00019d 1e7c
+                  .db  0x7d, 0x35
+00019e 357d
+                  .db  0x7e, 0x5a
+00019f 5a7e
+                  .db  0x7f, 0x69
+0001a0 697f
+                  .db  0x80, 0x76
+0001a1 7680
+                  .db  0x81, 0x80
+0001a2 8081
+                  .db  0x82, 0x88
+0001a3 8882
+                  .db  0x83, 0x8f
+0001a4 8f83
+                  .db  0x84, 0x96
+0001a5 9684
+                  .db  0x85, 0xa3
+0001a6 a385
+                  .db  0x86, 0xaf
+0001a7 af86
+                  .db  0x87, 0xc4
+0001a8 c487
+                  .db  0x88, 0xd7
+0001a9 d788
+                  .db  0x89, 0xe8
+0001aa e889
+                 ; AGC and AEC parameters.  Note we start by disabling those features,
+                 ; then turn them only after tweaking the values.
+                  .db  REG_COM8, COM8_FASTAEC | COM8_AECSTEP
+0001ab c013
+                  .db  REG_GAIN, 0
+0001ac 0000
+                  .db  REG_AECH, 0
+0001ad 0010
+                  .db  REG_COM4, 0x40 ; reserved bit
+0001ae 400d
+                  .db  REG_COM9, 0x18 ; 4x gain + rsvd bit
+0001af 1814
+                  .db  REG_BD50MAX, 0x05
+0001b0 05a5
+                  .db  REG_BD60MAX, 0x07
+0001b1 07ab
+                  .db  REG_AEW, 0x95
+0001b2 9524
+                  .db  REG_AEB, 0x33
+0001b3 3325
+                  .db  REG_VPT, 0xe3
+0001b4 e326
+                  .db  REG_HAECC1, 0x78
+0001b5 789f
+                  .db  REG_HAECC2, 0x68
+0001b6 68a0
+                  .db  0xa1, 0x03
+0001b7 03a1
+                  .db  REG_HAECC3, 0xd8
+0001b8 d8a6
+                  .db  REG_HAECC4, 0xd8
+0001b9 d8a7
+                  .db  REG_HAECC5, 0xf0
+0001ba f0a8
+                  .db  REG_HAECC6, 0x90
+0001bb 90a9
+                  .db  REG_HAECC7, 0x94
+0001bc 94aa
+                  .db  REG_COM8, COM8_FASTAEC | COM8_AECSTEP | COM8_AGC | COM8_AEC
+0001bd c513
+                  .db  0x30, 0
+0001be 0030
+                  .db  0x31, 0 ; disable some delays
+0001bf 0031
+                 ; Almost all of these are "reserved" values.
+                  .db  REG_COM5, 0x61
+0001c0 610e
+                  .db  REG_COM6, 0x4b
+0001c1 4b0f
+                  .db  0x16, 0x02
+0001c2 0216
+                  .db  REG_MVFP, 0x07
+0001c3 071e
+                  .db  0x21, 0x02
+0001c4 0221
+                  .db  0x22, 0x91
+0001c5 9122
+                  .db  0x29, 0x07
+0001c6 0729
+                  .db  0x33, 0x0b
+0001c7 0b33
+                  .db  0x35, 0x0b
+0001c8 0b35
+                  .db  0x37, 0x1d
+0001c9 1d37
+                  .db  0x38, 0x71
+0001ca 7138
+                  .db  0x39, 0x2a
+0001cb 2a39
+                  .db  REG_COM12, 0x78
+0001cc 783c
+                  .db  0x4d, 0x40
+0001cd 404d
+                  .db  0x4e, 0x20
+0001ce 204e
+                  .db  REG_GFIX, 0
+0001cf 0069
+               ; .db  0x6b, 0x4a
+                  .db  0x74, 0x10
+0001d0 1074
+                  .db  0x8d, 0x4f
+0001d1 4f8d
+                  .db  0x8e, 0
+0001d2 008e
+                  .db  0x8f, 0
+0001d3 008f
+                  .db  0x90, 0
+0001d4 0090
+                  .db  0x91, 0
+0001d5 0091
+                  .db  0x96, 0
+0001d6 0096
+                  .db  0x9a, 0
+0001d7 009a
+                  .db  0xb0, 0x84
+0001d8 84b0
+                  .db  0xb1, 0x0c
+0001d9 0cb1
+                  .db  0xb2, 0x0e
+0001da 0eb2
+                  .db  0xb3, 0x82
+0001db 82b3
+                  .db  0xb8, 0x0a
+0001dc 0ab8
+         
+                 ; More reserved, some of which tweaks white balance
+                  .db  0x43, 0x0a
+0001dd 0a43
+                  .db  0x44, 0xf0
+0001de f044
+                  .db  0x45, 0x34
+0001df 3445
+                  .db  0x46, 0x58
+0001e0 5846
+                  .db  0x47, 0x28
+0001e1 2847
+                  .db  0x48, 0x3a
+0001e2 3a48
+                  .db  0x59, 0x88
+0001e3 8859
+                  .db  0x5a, 0x88
+0001e4 885a
+                  .db  0x5b, 0x44
+0001e5 445b
+                  .db  0x5c, 0x67
+0001e6 675c
+                  .db  0x5d, 0x49
+0001e7 495d
+                  .db  0x5e, 0x0e
+0001e8 0e5e
+                  .db  0x6c, 0x0a
+0001e9 0a6c
+                  .db  0x6d, 0x55
+0001ea 556d
+                  .db  0x6e, 0x11
+0001eb 116e
+                  .db  0x6f, 0x9e ; it was 0x9F "9e for advance AWB"
+0001ec 9e6f
+                  .db  0x6a, 0x40
+0001ed 406a
+                  .db  REG_BLUE, 0x40
+0001ee 4001
+                  .db  REG_RED,  0x60
+0001ef 6002
+                  .db  REG_COM8, COM8_FASTAEC | COM8_AECSTEP | COM8_AGC | COM8_AEC | COM8_AWB
+0001f0 c713
+         
+                 ; Matrix coefficients
+                  .db  0x4f, 0x80
+0001f1 804f
+                  .db  0x50, 0x80
+0001f2 8050
+                  .db  0x51, 0
+0001f3 0051
+                  .db  0x52, 0x22
+0001f4 2252
+                  .db  0x53, 0x5e
+0001f5 5e53
+                  .db  0x54, 0x80
+0001f6 8054
+                  .db  0x58, 0x9e
+0001f7 9e58
+         
+                  .db  REG_COM16, COM16_AWBGAIN
+0001f8 0841
+                  .db  REG_EDGE, 0
+0001f9 003f
+                  .db  0x75, 0x05
+0001fa 0575
+                  .db  REG_REG76, 0xe1
+0001fb e176
+                  .db  0x4c, 0
+0001fc 004c
+                  .db  0x77, 0x01
+0001fd 0177
+                  .db  REG_COM13, 0x48 ; 0xc3
+0001fe 483d
+                  .db  0x4b, 0x09
+0001ff 094b
+                  .db  0xc9, 0x60
+000200 60c9
+               ; .db  REG_COM16, 0x38
+                  .db  0x56, 0x40
+000201 4056
+         
+                  .db  0x34, 0x11
+000202 1134
+                  .db  REG_COM11, COM11_EXP | COM11_HZAUTO
+000203 123b
+                  .db  0xa4, 0x82 ; was `0x88`
+000204 82a4
+                  .db  0x96, 0
+000205 0096
+                  .db  0x97, 0x30
+000206 3097
+                  .db  0x98, 0x20
+000207 2098
+                  .db  0x99, 0x30
+000208 3099
+                  .db  0x9a, 0x84
+000209 849a
+                  .db  0x9b, 0x29
+00020a 299b
+                  .db  0x9c, 0x03
+00020b 039c
+                  .db  0x9d, 0x4c
+00020c 4c9d
+                  .db  0x9e, 0x3f
+00020d 3f9e
+                  .db  0x78, 0x04
+00020e 0478
+         
+                 ; Extra-weird stuff. Some sort of multiplexor register
+                  .db  0x79, 0x01
+00020f 0179
+                  .db  0xc8, 0xf0
+000210 f0c8
+                  .db  0x79, 0x0f
+000211 0f79
+                  .db  0xc8, 0x00
+000212 00c8
+                  .db  0x79, 0x10
+000213 1079
+                  .db  0xc8, 0x7e
+000214 7ec8
+                  .db  0x79, 0x0a
+000215 0a79
+                  .db  0xc8, 0x80
+000216 80c8
+                  .db  0x79, 0x0b
+000217 0b79
+                  .db  0xc8, 0x01
+000218 01c8
+                  .db  0x79, 0x0c
+000219 0c79
+                  .db  0xc8, 0x0f
+00021a 0fc8
+                  .db  0x79, 0x0d
+00021b 0d79
+                  .db  0xc8, 0x20
+00021c 20c8
+                  .db  0x79, 0x09
+00021d 0979
+                  .db  0xc8, 0x80
+00021e 80c8
+                  .db  0x79, 0x02
+00021f 0279
+                  .db  0xc8, 0xc0
+000220 c0c8
+                  .db  0x79, 0x03
+000221 0379
+                  .db  0xc8, 0x40
+000222 40c8
+                  .db  0x79, 0x05
+000223 0579
+                  .db  0xc8, 0x30
+000224 30c8
+                  .db  0x79, 0x26
+000225 2679
+                  .db  0xff, 0xff ; END MARKER
+000226 ffff
+         
+000227   +  wait_for_high_VSYNC: wait_for_high CAM_VSYNC
+000229 9508                           ret
+00022a   +  wait_for_low_VSYNC:  wait_for_low  CAM_VSYNC
+00022c 9508                           ret
+         
+00022d   +  wait_for_high_PCLK:  wait_for_high CAM_PCLK
+00022f 9508                           ret
+000230   +  wait_for_low_PCLK:   wait_for_low  CAM_PCLK
+000232 9508                           ret
+         
+          cam_wr_sensor_regs_8_8: ; (Z)
+000233 9125              LPM    t_2, Z+
+000234 9135              LPM    t_3, Z+
+000235 3f2f              cpi    t_2, 0xff
+000236 f011              breq   cam_wr_sensor_regs_8_8_end
+000237 d064              rcall  cam_wr_cell
+000238 cffa              rjmp   cam_wr_sensor_regs_8_8
+               cam_wr_sensor_regs_8_8_end:
+000239 9508              ret
+         
+          cam_init:
+00023a e122              ldi    t_2, 0x12
+00023b e830              ldi    t_3, 0x80
+00023c d05f              rcall  cam_wr_cell
+00023d dedd              rcall  delay_100_ms
+00023e   +          ldi_Z  ov7670_default_regs
+000240 dff2              rcall  cam_wr_sensor_regs_8_8
+                 ; PCLK does not toggle on HBLANK
+000241 e125              ldi    t_2, REG_COM10
+000242 e230              ldi    t_3, 32
+000243 d058              rcall  cam_wr_cell
+000244 9508              ret
+         
+          cam_set_color:
+000245   +          ldi_Z  yuv422_ov7670
+000247 dfeb              rcall  cam_wr_sensor_regs_8_8
+000248 9508              ret
+         
+          cam_set_res:
+000249 e02c              ldi    t_2, REG_COM3
+00024a e034              ldi    t_3, 4 ; REG_COM3 enable scaling
+00024b d050              rcall  cam_wr_cell
+00024c   +          ldi_Z  qvga_ov7670
+00024e dfe4              rcall  cam_wr_sensor_regs_8_8
+00024f 9508              ret
+         
+          .include "include/I2C.asm"
+         
+           ; `i2c.asm`
+         
+           ; --------------------------------------------------------------------------------------------------------------------------------
+         
+000250   +    i2c_delay:  var_delay_3_clc  40
+000253 9508                    ret
+         
+            i2c_init:
+000254 98d9                  cbi    i2c_PORT, i2c_SDA
+000255 98d8                  cbi    i2c_PORT, i2c_SCL
+000256 d008                  rcall  i2c_SDA_1 ; "отпускаем" линию
+000257 d003                  rcall  i2c_SCL_1 ; "отпускаем" линию
+000258 9508                  ret
+         
+            i2c_SCL_0:
+                     ; притянуть к "земле"
+000259 9ad0                  sbi    i2c_DDR, i2c_SCL
+00025a 9508                  ret
+         
+            i2c_SCL_1:
+                     ; "третье состояние"
+00025b 98d0                  cbi    i2c_DDR, i2c_SCL
+00025c 9508                  ret
+         
+            i2c_SDA_0:
+                     ; притянуть к "земле"
+00025d 9ad1                  sbi    i2c_DDR, i2c_SDA
+00025e 9508                  ret
+         
+            i2c_SDA_1:
+                     ; "третье состояние"
+00025f 98d1                  cbi    i2c_DDR, i2c_SDA
+000260 9508                  ret
+         
+            i2c_start:
+000261 dffd                  rcall  i2c_SDA_1 ; SCL: -----|------  |
+000262 dff8                  rcall  i2c_SCL_1 ;           |      \ |
+000263 dfec                  rcall  i2c_delay ;           |       \|
+000264 dff8                  rcall  i2c_SDA_0 ;           |        ------
+000265 dfea                  rcall  i2c_delay ; SDA: ------        |
+000266 dff2                  rcall  i2c_SCL_0 ;           |\       |
+000267 dfe8                  rcall  i2c_delay ;           | \      |
+000268 9508                  ret              ;           |  ------|-----
+         
+            i2c_stop:
+000269 dfef                  rcall  i2c_SCL_0 ;           |  ------|-----
+00026a dff2                  rcall  i2c_SDA_0 ;           | /      |
+00026b dfe4                  rcall  i2c_delay ;           |/       |
+00026c dfee                  rcall  i2c_SCL_1 ; SCL: -----|        |
+00026d dfe2                  rcall  i2c_delay ;           |        |-----
+00026e dff0                  rcall  i2c_SDA_1 ;           |       /|
+00026f dfe0                  rcall  i2c_delay ;           |      / |
+000270 9508                  ret              ; SDA: -----|------  |
+         
+            i2c_SCL_pulse:
+000271 dfde                  rcall  i2c_delay ;           |  ----  |
+000272 dfe8                  rcall  i2c_SCL_1 ;           | /    \ |
+000273 dfdc                  rcall  i2c_delay ;           |/      \|
+000274 dfe4                  rcall  i2c_SCL_0 ; SCL: -----|        |-----
+000275 9508                  ret
+         
+            i2c_rd_bit: ; return `t_1`
+000276 dfe4                  rcall  i2c_SCL_1
+000277 dfd8                  rcall  i2c_delay
+000278 dfd7                  rcall  i2c_delay
+000279 dfd6                  rcall  i2c_delay
+00027a d075                  rcall  i2c_ack_bit_occasion ; ДЛЯ УДЛИННЕНИЯ ЗАДЕРЖКИ И "ОТМАШКИ" В ОТЛАДКУ [26.01.2018]
+00027b b319                  in     t_1, i2c_PIN ; read in `t_1` . bit # `i2c_SDA`
+00027c dfd3                  rcall  i2c_delay
+00027d dfdb                  rcall  i2c_SCL_0
+00027e dfd1                  rcall  i2c_delay
+00027f 9508                  ret
+         
+            i2c_write: ; (t_1)
+                     ; MSB .. LSB
+000280 e800                  ldi    t_0, 0x80
+                 i2c_write_loop:
+000281 2f21                  mov    t_2, t_1
+000282 2320                  and    t_2, t_0
+000283 f011                  breq   i2c_write_0
+000284 dfda                  rcall  i2c_SDA_1
+000285 c001                  rjmp   i2c_write_1_
+                 i2c_write_0:
+000286 dfd6                  rcall  i2c_SDA_0
+                 i2c_write_1_:
+000287 dfe9                  rcall  i2c_SCL_pulse
+000288 9506                  LSR    t_0
+000289 f7b9                  brne   i2c_write_loop
+00028a dfd4                  rcall  i2c_SDA_1  ; "отпускаем" линию
+00028b dfea                  rcall  i2c_rd_bit ; БИТ ПОДТВЕРЖДЕНИЯ.
+00028c 9508                  ret
+         
+            i2c_read: ; return `t_2`
+                     ; MSB .. LSB
+00028d e800                  ldi    t_0, 0x80
+00028e 2722                  clr    t_2
+00028f dfcf                  rcall  i2c_SDA_1 ; "отпускаем" линию
+                 i2c_read_loop:
+000290 dfe5                  rcall  i2c_rd_bit
+000291 fd11                  sbrc   t_1, i2c_SDA
+000292 2b20                  or     t_2, t_0
+000293 9506                  LSR    t_0
+000294 f7d9                  brne   i2c_read_loop
+                     ; БИТ ПОДТВЕРЖДЕНИЯ (`0` или `1`)
+000295 3051                  cpi    cnt_2, 1 ; последний байт с "высоким" подтверждением, остальные - с "низким"
+000296 f011                  breq   i2c_read_ack_1
+000297 dfc5                  rcall  i2c_SDA_0
+000298 c001                  rjmp   i2c_read_ack_send
+                 i2c_read_ack_1:
+000299 dfc5                  rcall  i2c_SDA_1
+                 i2c_read_ack_send:
+00029a dfd6                  rcall  i2c_SCL_pulse
+00029b 9508                  ret
+         
+           ; --------------------------------------------------------------------------------------------------------------------------------
+         
+         
+          cam_wr_cell: ; (t_2{cell}, t_3{data})
+00029c 2ee2              mov     R14, t_2
+00029d 2ef3              mov     R15, t_3
+00029e dfc2              rcall   i2c_start
+00029f e412              ldi     t_1, camAddr_WR
+0002a0 dfdf              rcall   i2c_write
+0002a1 2d1e              mov     t_1, R14
+0002a2 dfdd              rcall   i2c_write
+0002a3 2d1f              mov     t_1, R15
+0002a4 dfdb              rcall   i2c_write
+0002a5 dfc3              rcall   i2c_stop
+0002a6 de6c              rcall   delay_1_ms
+0002a7 9508              ret
+         
+         ; частота передачи данных настроена как 8 / 4 = 2 МГц
+          .MACRO AT_send_bit
+                    nop                ; 1 clc - 0
+                    BST   t_0, @0      ; 1 clc - 1
+                    BLD   R15, AT_PIN  ; 1 clc - 2
+                    OUT   AT_PORT, R15 ; 1 clc - 3 {вывод}
+          .ENDMACRO
+         
+         ; было в пред.версии:
+         ; << при частоте ядра 16 МГц получаем частоту передачи 1 МГц
+         ;    {без делителя получилось бы 16 МГц / 3 = 5 1/3 МГц} >>
+          AT_send_byte: ; (t_0)
+0002a8 b2f2         IN    R15, AT_PORT
+            ; start
+0002a9 9895         CBI   AT_PORT, AT_PIN ; 2 clc
+            ; lo nibble
+0002aa   +     AT_send_bit 0
+0002ae   +     AT_send_bit 1
+0002b2   +     AT_send_bit 2
+0002b6   +     AT_send_bit 3
+            ; hi nibble
+0002ba   +     AT_send_bit 4
+0002be   +     AT_send_bit 5
+0002c2   +     AT_send_bit 6
+0002c6   +     AT_send_bit 7
+            ; stop
+0002ca 0000         nop
+0002cb 0000         nop ; 01) ЧАСТОТА ПЕРЕДАЧИ F_clc / 4
+0002cc 0000         nop ; 02) ЧАСТОТА ПЕРЕДАЧИ F_clc / 4
+0002cd 9a95         SBI   AT_PORT, AT_PIN ; 2 clc
+0002ce 0000         nop ; 01) ЧАСТОТА ПЕРЕДАЧИ F_clc / 4
+0002cf 0000         nop ; 02) ЧАСТОТА ПЕРЕДАЧИ F_clc / 4
+0002d0 9508         RET
+         
+          AT_send_string: ; (ZH:ZL) ldi_Z <label>
+0002d1 9105              LPM     t_0, Z+
+0002d2 3000              cpi     t_0, 0
+0002d3 f011              breq    AT_send_string_end
+0002d4 dfd3              rcall   AT_send_byte
+0002d5 cffb              rjmp    AT_send_string
+               AT_send_string_end:
+0002d6 9508              ret
+         
+          capture_one_pixel:
+0002d7 df58              rcall  wait_for_low_PCLK
+0002d8 b306              IN     t_0, CAM_DATA_PIN
+0002d9 dfce              rcall  AT_send_byte
+0002da df52              rcall  wait_for_high_PCLK
+0002db df54              rcall  wait_for_low_PCLK
+0002dc df50              rcall  wait_for_high_PCLK
+0002dd 9508              ret
+         
+0002de      frame_synchro_token: .db "*RDY*",0
+0002de 522a
+0002df 5944
+0002e0 002a
+         
+          capture_img_320x240: ; использованы регистры t_0, t_1, W_lo, W_hi
+0002e1   +          ldi_Z   frame_synchro_token
+0002e3 dfed              rcall   AT_send_string
+0002e4 dfc3              rcall   AT_send_byte
+0002e5 df41              rcall   wait_for_high_VSYNC
+0002e6 df43              rcall   wait_for_low_VSYNC
+0002e7   +          ldi_W   (320 * 240 / 2)
+               frame_loop:
+0002e9 95a8              wdr
+0002ea dfec              rcall  capture_one_pixel
+0002eb dfeb              rcall  capture_one_pixel
+0002ec 9701              SBIW   W_hi:W_lo, 1
+0002ed f7d9              brne   frame_loop
+0002ee de2c              rcall  delay_100_ms
+0002ef 9508              ret
+         
+          i2c_ack_bit_occasion:
+0002f0 e20e              ldi     t_0, '.'
+0002f1 dfb6              rcall   AT_send_byte
+0002f2 9508              ret
+
+Assembly complete with no errors.

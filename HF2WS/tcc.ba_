@@ -1,0 +1,13 @@
+rem insert Turbo C 1.01 path
+set ide_path=TC
+
+SET PATH=%PATH%;%ide_path%\bin
+set inc=%ide_path%\include
+set lib=%ide_path%\lib
+
+tcc.exe -I%inc% -L%lib% %1
+
+pause
+
+del *.obj
+del *.bak
